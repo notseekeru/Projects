@@ -1,0 +1,72 @@
+gitignore# -------------------------------------------------
+#  PLATFORMIO – keep only the *source* and *config*
+# -------------------------------------------------
+
+# === KEEP (these are the only files you should commit) ===
+!platformio.ini                # Project configuration (boards, envs, libs, etc.)
+!src/                          # Your source code (main.cpp, .ino, .h, etc.)
+!include/                      # Optional header folder
+!lib/                          # Your private libraries (if any)
+!test/                         # Unit / integration tests
+!.vscode/                      # VS Code settings (optional – see note below)
+!.vscode/settings.json         # Recommended: keep PlatformIO tasks & launch config
+!.vscode/c_cpp_properties.json # Optional: IntelliSense config (generated but useful)
+
+# === IGNORE EVERYTHING ELSE ===
+
+# Build output
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.pioenvs/
+.piolibdeps/
+
+# VS Code / PlatformIO extension cache
+.vscode/.browse.c_cpp.db*
+.vscode/ipch/
+.vscode/c_cpp_properties.json.cache
+
+# Compiled objects & binaries
+*.o
+*.a
+*.elf
+*.bin
+*.hex
+*.map
+*.d
+*.su
+
+# IDE / editor temporaries
+*.swp
+*.swo
+*~
+.#*
+.vscode/*.log
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# OS / system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python / virtualenv (if you use scripts)
+__pycache__/
+*.pyc
+env/
+venv/
+.venv/
+
+# Misc
+build/
+debug/
+.cache/
+tmp/
+temp/
+
+# -------------------------------------------------
+#  END OF .gitignore
+# -------------------------------------------------
