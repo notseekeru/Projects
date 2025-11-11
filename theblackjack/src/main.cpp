@@ -117,25 +117,30 @@ void setup() {
 }
 
 void loop() {
-    int ans = waitForButton();
+    while(true) {
+        int ans = waitForButton();
 
-    if (ans == 1) {
-        Serial.println("BTN 1 - START GAME");
-    }
-    if (ans == 2) {
-        Serial.println("BTN 2 - DECREASE BET");
-    }
-    if (ans == 3) {
-        Serial.println("BTN 3 - HIT");
-        displayHitOrStandMenu();
-    }
-    if (ans == 4) {
-        Serial.println("BTN 4 - STAND");
-        display.clearDisplay();
-        centerText("KYS (IN GAME)", 30);
-        display.display();
-    }
-    if (ans == 5) {
-        Serial.println("BTN 5 - INCREASE BET");
+        if (ans == 1) {
+            Serial.println("BTN 1 - START GAME");
+        }
+        if (ans == 2) {
+            Serial.println("BTN 2 - DECREASE BET");
+        }
+        if (ans == 3) {
+            Serial.println("BTN 3 - HIT");
+            displayHitOrStandMenu();
+        }
+        if (ans == 4) {
+            Serial.println("BTN 4 - STAND");
+            display.clearDisplay();
+            centerText("KYS (IN GAME)", 30);
+            display.display();
+            while(true) {
+                delay(1000);
+            }
+        }
+        if (ans == 5) {
+            Serial.println("BTN 5 - INCREASE BET");
+        }
     }
 }
