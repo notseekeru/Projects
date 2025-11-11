@@ -5,89 +5,111 @@
 #include <ctime>
 #include <string.h>
 
-#define button_pin_4 4
-#define button_pin_18 18
+#define BUTTON_PIN_18 18    // START GAME
+#define BUTTON_PIN_5  19    // DECREASE BET (changed from 5)
+#define BUTTON_PIN_4  4     // HIT
+#define BUTTON_PIN_2  23    // STAND (changed from 2)
+#define BUTTON_PIN_15 15    // INCREASE BET
+
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 
 // FUNCTIONS
+
+void centerText(const char* text, int y) {
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  int16_t x1, y1;
+  uint16_t w, h;
+  display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h); // Calculate text bounds (width and height)
+  // Calculate the starting X position for center alignment
+  int x = (128 - w) / 2;
+  // Set the cursor position
+  display.setCursor(x, y);
+  // Print the text
+  display.println(text);
+}
+
 void displayStartMenu() {
     display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(10,2);
-    display.println("===== START ====");
-    display.setCursor(48,32);
-    display.println("Play?");
-    display.setCursor(8,54);
-    display.println("<--- YES | NO --->");
+
+    centerText("=== START ===",2);
+    centerText("PLAY?",25);
+    centerText("C = YES | NO = D",50);
+    
     display.display();
 }
 
 void displayHitOrStandMenu() {
     display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(10,5);
-    display.println("HIT OR STAND");
-    display.setCursor(10, 20);
-    display.println("<--- || --->");
+    centerText("HIT OR STAND",20);
+    centerText("C - HIT | STAND - D",40);
     display.display();
 }
-// SIMPLE TEXT
-int displaySimpleText(const char* x, const char* y , const char* z) {
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.display();
 
-    delay(1000);
-    display.println(x);
-    display.display();
-    delay(1500);
-    display.println(y);
-    display.display();
-    delay(1750);
-    display.println(z);
-    display.display();
-    return 0;
-}
 
 // BUTTON LOGIC
-int LastState_A = HIGH;
-int CurrentState_A;
-int LastState_B = HIGH;
-int CurrentState_B;
+int curSt_1, curSt_2, curSt_3, curSt_4, curSt_5;
+int lastSt_1, lastSt_2, lastSt_3, lastSt_4, lastSt_5 = LOW;
+int result;
+unsigned long lastDebounceTime = 0;
+const unsigned long debounceDelay = 200;  // 200ms debounce delay
 
-// Returns: 1 if button_pin_4 pressed, 0 if button_pin_18 pressed, -1 if no press
 int waitForButton() {
-    CurrentState_A = digitalRead(button_pin_4);
-    CurrentState_B = digitalRead(button_pin_18);
 
-    int result = -1;
+    curSt_1 = digitalRead(BUTTON_PIN_18);
+    curSt_2 = digitalRead(BUTTON_PIN_5);
+    curSt_3 = digitalRead(BUTTON_PIN_4);
+    curSt_4 = digitalRead(BUTTON_PIN_2);
+    curSt_5 = digitalRead(BUTTON_PIN_15);
 
-    if (LastState_A == HIGH && CurrentState_A == LOW) {
+    result = -1;
+
+    if (lastSt_1 == HIGH && curSt_1 == LOW) {
         result = 1;
     }
-    else if (LastState_B == HIGH && CurrentState_B == LOW) {
-        result = 0;
+    else if (lastSt_2 == HIGH && curSt_2 == LOW) {
+        result = 2;
+    }
+    else if (lastSt_3 == HIGH && curSt_3 == LOW) {
+        result = 3;
+    }
+    else if (lastSt_4 == HIGH && curSt_4 == LOW) {
+        result = 4;
+    }
+    else if (lastSt_5 == HIGH && curSt_5 == LOW) {
+        result = 5;
     }
 
-    LastState_A = CurrentState_A;
-    LastState_B = CurrentState_B;
+    if (result != -1) {
+        if ((millis() - lastDebounceTime) > debounceDelay) {
+            lastDebounceTime = millis();
+        } else {
+            result = -1;  // Ignore button press within debounce period
+        }
+    }
+
+    lastSt_1 = curSt_1;
+    lastSt_2 = curSt_2;
+    lastSt_3 = curSt_3;
+    lastSt_4 = curSt_4;
+    lastSt_5 = curSt_5;
 
     return result;
 }
 
 // ACTUAL LOGIC OF THE ESP32
-
-uint32_t seed = 0;
 void setup() {
     Serial.begin(115200);
 
-    pinMode(button_pin_4, INPUT_PULLUP);
-    pinMode(button_pin_18, INPUT_PULLUP);
-
+    pinMode(BUTTON_PIN_18, INPUT_PULLUP);
+    pinMode(BUTTON_PIN_5, INPUT_PULLUP);
+    pinMode(BUTTON_PIN_4, INPUT_PULLUP);
+    pinMode(BUTTON_PIN_2, INPUT_PULLUP);
+    pinMode(BUTTON_PIN_15, INPUT_PULLUP);
+    
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
-    Serial.println(F("SSD1306 allocation failed"));
+        Serial.println(F("SSD1306 allocation failed"));
     for(;;);
     }
 
@@ -96,12 +118,24 @@ void setup() {
 
 void loop() {
     int ans = waitForButton();
+
     if (ans == 1) {
-        Serial.println("BTN 1 - ON");
+        Serial.println("BTN 1 - START GAME");
+    }
+    if (ans == 2) {
+        Serial.println("BTN 2 - DECREASE BET");
+    }
+    if (ans == 3) {
+        Serial.println("BTN 3 - HIT");
         displayHitOrStandMenu();
     }
-    if (ans == 0) {
-        Serial.println("BTN 2 - ON");
-        displaySimpleText("KYS", "IN GAME", "OFCOURSE:)");
+    if (ans == 4) {
+        Serial.println("BTN 4 - STAND");
+        display.clearDisplay();
+        centerText("KYS (IN GAME)", 30);
+        display.display();
+    }
+    if (ans == 5) {
+        Serial.println("BTN 5 - INCREASE BET");
     }
 }

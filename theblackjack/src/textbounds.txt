@@ -1,0 +1,15 @@
+
+void centerText(const char* text, int y) {
+  int16_t x1, y1;
+  uint16_t w, h;
+  display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h); // Calculate text bounds (width and height)
+
+  // Calculate the starting X position for center alignment
+  int x = (SCREEN_WIDTH - w) / 2;
+
+  // Set the cursor position
+  display.setCursor(x, y);
+  
+  // Print the text
+  display.println(text);
+}
