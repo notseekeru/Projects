@@ -3,16 +3,28 @@
 #include <Adafruit_SSD1306.h>
 #include <cstdlib>
 #include <ctime>
-#include <string.h>
+#include "esp_system.h"
 
 #define BUTTON_PIN_18 18    // START GAME
-#define BUTTON_PIN_5  19    // DECREASE BET (changed from 5)
+#define BUTTON_PIN_19 19    // DECREASE BET (changed from 5)
 #define BUTTON_PIN_4  4     // HIT
 #define BUTTON_PIN_2  23    // STAND (changed from 2)
 #define BUTTON_PIN_15 15    // INCREASE BET
+#define BUZZER_PIN 5
 
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
+// VARIABLES
+int playerMoney = 100;
+int playerBet = 10;
+int randNumber;
+int playerTotal = 0;
+int dealerTotal = 0;
+int curSt_1, curSt_2, curSt_3, curSt_4, curSt_5;
+int lastSt_1, lastSt_2, lastSt_3, lastSt_4, lastSt_5 = LOW;
+int result;
+unsigned long lastDebounceTime = 0;
+const unsigned long debounceDelay = 200;
 
 // FUNCTIONS
 
@@ -30,35 +42,58 @@ void centerText(const char* text, int y) {
   display.println(text);
 }
 
+int drawCard() {
+    int card = random(1, 13);
+    if (card > 10) card = 10;
+    return card;
+}
+
+void seedCard() {
+    playerTotal = drawCard() + drawCard();
+    dealerTotal = drawCard();
+}
+
+int gameRender() {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+
+    display.setCursor(0, 0);
+    display.print("Money:$");
+    display.print(playerMoney);
+    display.print(" ");
+    display.print("Bet:$");
+    display.println(playerBet);
+
+    display.println("");
+    display.print("Player Total: ");
+    display.println(playerTotal);
+    display.print("Dealer Total: ");
+    display.print(dealerTotal);
+    display.print(" + ??");
+
+    display.setCursor(0, 40);
+    display.println("2:+ Bet | 3:Hit");
+    display.setCursor(0, 50);
+    display.println("4:Stand | 5: + Bet");
+    
+    display.display();
+    return 0;
+}
+
 void displayStartMenu() {
     display.clearDisplay();
 
-    centerText("=== START ===",2);
-    centerText("PLAY?",25);
-    centerText("C = YES | NO = D",50);
+    centerText("=== START ===", 2);
+    centerText("PLAY?", 25);
+    centerText("C = YES | NO = D", 50);
     
     display.display();
 }
 
-void displayHitOrStandMenu() {
-    display.clearDisplay();
-    centerText("HIT OR STAND",20);
-    centerText("C - HIT | STAND - D",40);
-    display.display();
-}
-
-
-// BUTTON LOGIC
-int curSt_1, curSt_2, curSt_3, curSt_4, curSt_5;
-int lastSt_1, lastSt_2, lastSt_3, lastSt_4, lastSt_5 = LOW;
-int result;
-unsigned long lastDebounceTime = 0;
-const unsigned long debounceDelay = 200;  // 200ms debounce delay
-
 int waitForButton() {
 
     curSt_1 = digitalRead(BUTTON_PIN_18);
-    curSt_2 = digitalRead(BUTTON_PIN_5);
+    curSt_2 = digitalRead(BUTTON_PIN_19);
     curSt_3 = digitalRead(BUTTON_PIN_4);
     curSt_4 = digitalRead(BUTTON_PIN_2);
     curSt_5 = digitalRead(BUTTON_PIN_15);
@@ -103,44 +138,72 @@ void setup() {
     Serial.begin(115200);
 
     pinMode(BUTTON_PIN_18, INPUT_PULLUP);
-    pinMode(BUTTON_PIN_5, INPUT_PULLUP);
+    pinMode(BUTTON_PIN_19, INPUT_PULLUP);
     pinMode(BUTTON_PIN_4, INPUT_PULLUP);
     pinMode(BUTTON_PIN_2, INPUT_PULLUP);
     pinMode(BUTTON_PIN_15, INPUT_PULLUP);
+    pinMode(BUZZER_PIN, OUTPUT);
     
-    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
-    }
-
+    for(;;); } // ACTIVATES OLED DISPLAY
+    
     displayStartMenu();
 }
 
-void loop() {
-    while(true) {
-        int ans = waitForButton();
+bool inMenu = true;
+bool inGame = false;
 
-        if (ans == 1) {
-            Serial.println("BTN 1 - START GAME");
-        }
-        if (ans == 2) {
-            Serial.println("BTN 2 - DECREASE BET");
-        }
+void loop() {
+    int ans = waitForButton();
+
+    if (ans == 1){
+        digitalWrite(BUZZER_PIN, HIGH);
+        delay(2000);
+        digitalWrite(BUZZER_PIN,LOW);
+    }
+
+    // MENU STATE
+    if (inMenu && !inGame) {
         if (ans == 3) {
-            Serial.println("BTN 3 - HIT");
-            displayHitOrStandMenu();
+            inMenu = false;
+            inGame = true;
+            seedCard(); // Draw initial cards only once
+            gameRender();
         }
-        if (ans == 4) {
-            Serial.println("BTN 4 - STAND");
+        else if (ans == 4) {
             display.clearDisplay();
-            centerText("KYS (IN GAME)", 30);
+            centerText("GOODBYE!", 30);
             display.display();
+            delay(1000);
+            digitalWrite(BUZZER_PIN, HIGH);
             while(true) {
                 delay(1000);
             }
         }
+    }
+
+    // IF IN GAME
+    if (inGame && !inMenu) {
+        if (ans == 2) {
+            if (playerBet >= 20u) {
+                playerBet -= 10;
+            } else {
+                digitalWrite(BUZZER_PIN, HIGH);
+                delay(100);
+                digitalWrite(BUZZER_PIN,LOW);
+            }
+            gameRender();
+        }
+        if (ans == 3) {
+            // TODO: Implement hit logic
+        }
+        if (ans == 4) {
+            // TODO: Implement stand logic
+        }
         if (ans == 5) {
-            Serial.println("BTN 5 - INCREASE BET");
+            playerBet += 10;
+            gameRender();
         }
     }
 }
