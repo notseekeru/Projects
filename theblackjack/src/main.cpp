@@ -10,7 +10,7 @@
 #define BUTTON_PIN_4  4     // HIT
 #define BUTTON_PIN_2  23    // STAND (changed from 2)
 #define BUTTON_PIN_15 15    // INCREASE BET
-#define BUZZER_PIN 5
+#define BUZZER_PIN    5     // BUZZEN PIN
 
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
@@ -115,7 +115,7 @@ void displayStartMenu() {
     display.display();
 }
 
-int renderInGame() {
+int renderGame() {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 
@@ -143,12 +143,14 @@ int renderInGame() {
 }
 
 void renderGameOver() {
+    delay(1000);
     display.clearDisplay();
-    centerText("You lost all your money!", 10);
-    centerText("=== GAME OVER ===", 30);
-    centerText("Returning to Menu...", 70);
+    centerText("You lost all", 10);
+    centerText("your money!", 20);
+    centerText("=== GAME OVER ===", 40);
+    centerText("Returning to Menu...", 50);
     display.display();
-    delay(3000);
+    delay(1500);
     inMenu = true;
     inGame = false;
     playerBet = 10;
@@ -156,6 +158,54 @@ void renderGameOver() {
     playerTotal = 0;
     dealerTotal = 0;
     displayStartMenu();
+}
+
+void renderPlay() {
+    while (dealerTotal < 17) {
+        display.clearDisplay();
+        dealerTotal += drawCard();
+        centerText("Player:", 10);
+        centerText(String(playerTotal).c_str(), 20);
+        centerText("Dealer:", 30);
+        centerText(String(dealerTotal).c_str(), 40);
+        display.display();
+        delay(1000);
+    }
+    
+    if (dealerTotal > 21 && playerTotal <= 21) {
+        display.clearDisplay();
+        centerText("You win! Dealer Bust!", 30);
+        display.display();
+        playerMoney += playerBet;
+        delay(1000);
+        
+    } else {
+        if (playerTotal > dealerTotal) {
+            display.clearDisplay();
+            centerText("You WIN by Totals!",30);
+            centerText(":)))",40);
+            display.display();
+            playerMoney += playerBet;
+            delay(1500);
+            
+        }
+        if (playerTotal < dealerTotal) {
+            display.clearDisplay();
+            centerText("You LOST by Totals!",30);
+            centerText(":(((",40);
+            display.display();
+            playerMoney -= playerBet;
+            delay(1500);
+        }
+    }
+    inGame = true;
+    if (playerBet > playerMoney) {
+        playerBet = 10;
+    }
+    playerTotal = 0;
+    dealerTotal = 0;
+    seedCard();
+    renderGame();
 }
 
 // ACTUAL LOGIC OF THE ESP32
@@ -176,10 +226,6 @@ void setup() {
     displayStartMenu();
 }
 
-void renderPlay() {
-
-}
-
 void loop() {
     int ans = waitForButton();
 
@@ -194,8 +240,8 @@ void loop() {
         if (ans == 3) {
             inMenu = false;
             inGame = true;
-            seedCard(); // Draw initial cards only once
-            renderInGame();
+            seedCard();
+            renderGame();
         }
         else if (ans == 4) {
             display.clearDisplay();
@@ -219,12 +265,12 @@ void loop() {
                 delay(100);
                 digitalWrite(BUZZER_PIN,LOW);
             }
-            renderInGame();
+            renderGame();
         }
         if (ans == 3) {
             Serial.println("3");
             playerTotal += drawCard();
-            renderInGame();
+            renderGame();
 
             if (playerTotal > 21) {
                 delay(500);
@@ -234,15 +280,18 @@ void loop() {
                 display.display();
                 playerTotal = 0;
                 dealerTotal = 0;
-                delay(2000);
+                delay(1200);
                 seedCard();
-                renderInGame();
+                renderGame();
             }
         }
         if (ans == 4) {
             Serial.println("4");
             inPlay = true;
+            inGame = false;
             renderPlay();
+            delay(500);
+            renderGame();
         }
         if (ans == 5) {
             if (playerBet >= playerMoney) {
@@ -251,14 +300,12 @@ void loop() {
                 digitalWrite(BUZZER_PIN,LOW);
             } else {
                 playerBet += 10;
-                renderInGame();
+                renderGame();
             }
         }
     }
 
     if (playerMoney <= 0) { // ENDS GAME
-        delay(1000);
         renderGameOver();
-        delay(1000);
     }
 }
