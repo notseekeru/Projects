@@ -26,7 +26,7 @@ int curSt_1, curSt_2, curSt_3, curSt_4, curSt_5;
 int lastSt_1, lastSt_2, lastSt_3, lastSt_4, lastSt_5 = LOW;
 int result;
 unsigned long lastDebounceTime = 0;
-const unsigned long debounceDelay = 800;
+const unsigned long debounceDelay = 500;
 
 
 bool inMenu = true;
@@ -238,9 +238,9 @@ void loop() {
     // MENU STATE
     if (inMenu && !inGame) {
         if (ans == 3) {
+            seedCard();
             inMenu = false;
             inGame = true;
-            seedCard();
             renderGame();
         }
         else if (ans == 4) {
@@ -258,12 +258,13 @@ void loop() {
     // IF IN GAME
     if (inGame && !inMenu) {
         if (ans == 2) {
-            if (playerBet >= 20) {
-                playerBet -= 10;
-            } else {
+            Serial.println("2");
+            if (playerBet <= 10) {
                 digitalWrite(BUZZER_PIN, HIGH);
                 delay(100);
                 digitalWrite(BUZZER_PIN,LOW);
+            } else {
+                playerBet -= 10;
             }
             renderGame();
         }
@@ -294,6 +295,7 @@ void loop() {
             renderGame();
         }
         if (ans == 5) {
+            Serial.println("5");
             if (playerBet >= playerMoney) {
                 digitalWrite(BUZZER_PIN, HIGH);
                 delay(100);
