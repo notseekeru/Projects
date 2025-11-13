@@ -15,16 +15,25 @@
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 // VARIABLES
-int playerMoney = 100;
+int playerMoney = 30;
 int playerBet = 10;
 int randNumber;
 int playerTotal = 0;
 int dealerTotal = 0;
+
+
 int curSt_1, curSt_2, curSt_3, curSt_4, curSt_5;
 int lastSt_1, lastSt_2, lastSt_3, lastSt_4, lastSt_5 = LOW;
 int result;
 unsigned long lastDebounceTime = 0;
-const unsigned long debounceDelay = 200;
+const unsigned long debounceDelay = 800;
+
+
+bool inMenu = true;
+bool inGame = false;
+bool inPlay = false;
+bool gameOver = false;
+
 
 // FUNCTIONS
 
@@ -51,43 +60,6 @@ int drawCard() {
 void seedCard() {
     playerTotal = drawCard() + drawCard();
     dealerTotal = drawCard();
-}
-
-int gameRender() {
-    display.clearDisplay();
-    display.setTextColor(SSD1306_WHITE);
-
-    display.setCursor(0, 0);
-    display.print("Money:$");
-    display.print(playerMoney);
-    display.print(" ");
-    display.print("Bet:$");
-    display.println(playerBet);
-
-    display.println("");
-    display.print("Player Total: ");
-    display.println(playerTotal);
-    display.print("Dealer Total: ");
-    display.print(dealerTotal);
-    display.print(" + ??");
-
-    display.setCursor(0, 40);
-    display.println("2:+ Bet | 3:Hit");
-    display.setCursor(0, 50);
-    display.println("4:Stand | 5: + Bet");
-    
-    display.display();
-    return 0;
-}
-
-void displayStartMenu() {
-    display.clearDisplay();
-
-    centerText("=== START ===", 2);
-    centerText("PLAY?", 25);
-    centerText("C = YES | NO = D", 50);
-    
-    display.display();
 }
 
 int waitForButton() {
@@ -133,6 +105,59 @@ int waitForButton() {
     return result;
 }
 
+void displayStartMenu() {
+    display.clearDisplay();
+
+    centerText("=== START ===", 2);
+    centerText("PLAY?", 25);
+    centerText("C = YES | NO = D", 50);
+    
+    display.display();
+}
+
+int renderInGame() {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+
+    display.setCursor(0, 0);
+    display.print("Money:$");
+    display.print(playerMoney);
+    display.print(" ");
+    display.print("Bet:$");
+    display.println(playerBet);
+
+    display.println("");
+    display.print("Player Total: ");
+    display.println(playerTotal);
+    display.print("Dealer Total: ");
+    display.print(dealerTotal);
+    display.print(" + ??");
+
+    display.setCursor(0, 40);
+    display.println("2:+ Bet | 3:Hit");
+    display.setCursor(0, 50);
+    display.println("4:Stand | 5: + Bet");
+    
+    display.display();
+    return 0;
+}
+
+void renderGameOver() {
+    display.clearDisplay();
+    centerText("You lost all your money!", 10);
+    centerText("=== GAME OVER ===", 30);
+    centerText("Returning to Menu...", 70);
+    display.display();
+    delay(3000);
+    inMenu = true;
+    inGame = false;
+    playerBet = 10;
+    playerMoney = 30;
+    playerTotal = 0;
+    dealerTotal = 0;
+    displayStartMenu();
+}
+
 // ACTUAL LOGIC OF THE ESP32
 void setup() {
     Serial.begin(115200);
@@ -151,15 +176,16 @@ void setup() {
     displayStartMenu();
 }
 
-bool inMenu = true;
-bool inGame = false;
+void renderPlay() {
+
+}
 
 void loop() {
     int ans = waitForButton();
 
     if (ans == 1){
         digitalWrite(BUZZER_PIN, HIGH);
-        delay(2000);
+        delay(10000);
         digitalWrite(BUZZER_PIN,LOW);
     }
 
@@ -169,7 +195,7 @@ void loop() {
             inMenu = false;
             inGame = true;
             seedCard(); // Draw initial cards only once
-            gameRender();
+            renderInGame();
         }
         else if (ans == 4) {
             display.clearDisplay();
@@ -186,24 +212,53 @@ void loop() {
     // IF IN GAME
     if (inGame && !inMenu) {
         if (ans == 2) {
-            if (playerBet >= 20u) {
+            if (playerBet >= 20) {
                 playerBet -= 10;
             } else {
                 digitalWrite(BUZZER_PIN, HIGH);
                 delay(100);
                 digitalWrite(BUZZER_PIN,LOW);
             }
-            gameRender();
+            renderInGame();
         }
         if (ans == 3) {
-            // TODO: Implement hit logic
+            Serial.println("3");
+            playerTotal += drawCard();
+            renderInGame();
+
+            if (playerTotal > 21) {
+                delay(500);
+                display.clearDisplay();
+                playerMoney -= playerBet;
+                centerText("You busted!", 30);
+                display.display();
+                playerTotal = 0;
+                dealerTotal = 0;
+                delay(2000);
+                seedCard();
+                renderInGame();
+            }
         }
         if (ans == 4) {
-            // TODO: Implement stand logic
+            Serial.println("4");
+            inPlay = true;
+            renderPlay();
         }
         if (ans == 5) {
-            playerBet += 10;
-            gameRender();
+            if (playerBet >= playerMoney) {
+                digitalWrite(BUZZER_PIN, HIGH);
+                delay(100);
+                digitalWrite(BUZZER_PIN,LOW);
+            } else {
+                playerBet += 10;
+                renderInGame();
+            }
         }
+    }
+
+    if (playerMoney <= 0) { // ENDS GAME
+        delay(1000);
+        renderGameOver();
+        delay(1000);
     }
 }
