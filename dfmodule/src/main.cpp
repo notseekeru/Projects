@@ -1,66 +1,146 @@
-#include <Arduino.h>
-#include "DFRobotDFPlayerMini.h"
+/*
+   DFPlayer Mini demo for Arduino Uno
+   Library: DFRobotDFPlayerMini (by Makuna)
+   Author: ChatGPT – 2025
+*/
 
-HardwareSerial DFPlayerSerial(2);
+#include <SoftwareSerial.h>
+#include <DFRobotDFPlayerMini.h>
+
+// SoftwareSerial: (RX, TX)  -> Arduino receives on RX, sends on TX
+SoftwareSerial softSerial(11, 10);   // Uno RX=11, Uno TX=10
 DFRobotDFPlayerMini player;
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial) delay(10);
+  // 1. Start hardware serial for debugging
+  Serial.begin(115200);
 
-  Serial.println(F("\n=== DFPlayer Mini + ESP32 ==="));
+  // 2. Start software serial for DFPlayer
+  softSerial.begin(9600);
 
-  // === STEP 1: Start UART2 ===
-  DFPlayerSerial.begin(9600, SERIAL_8N1, 27, 26);
-  Serial.println(F("UART2 started (RX=27, TX=26)"));
-
-  // === STEP 2: WAIT LONGER ===
-  Serial.println(F("Waiting 3 seconds for DFPlayer boot..."));
-  delay(3000);  // <--- INCREASED TO 3 SECONDS!
-
-  // === STEP 3: FLUSH ANY GARBAGE ===
-  while (DFPlayerSerial.available()) {
-    Serial.printf("Flushing: 0x%02X\n", DFPlayerSerial.read());
+  // 3. Initialise DFPlayer
+  Serial.println(F("\n=== DFPlayer Mini Demo ==="));
+  if (!player.begin(softSerial, /*ack=*/true)) {
+    Serial.println(F("Unable to begin DFPlayer! Check wiring / SD card."));
+    while (true) delay(100);   // halt
   }
+  Serial.println(F("DFPlayer Mini online."));
 
-  // === STEP 4: INITIALIZE DFPLAYER ===
-  Serial.println(F("Initializing DFPlayer..."));
-  if (!player.begin(DFPlayerSerial, true, true)) {  // isACK=true, doReset=true
-    Serial.println(F("DFPlayer FAILED!"));
-    Serial.println(F("  → Check: VCC=5V, proper wiring, SD card inserted"));
-    while (true) delay(100);
-  }
+  // 4. Basic settings
+  player.volume(20);   // 0…30
+  player.EQ(DFPLAYER_EQ_NORMAL);
+  player.outputSetting(true);   // enable amplifier chip
 
-  Serial.println(F("DFPlayer ONLINE!"));
-
-  delay(500);  // Wait after initialization
-
-  // === STEP 5: Settings ===
-  player.volume(20);
-  player.outputDevice(DFPLAYER_DEVICE_SD);
-
-  // === STEP 6: PLAY YOUR FILE ===
-  player.playFolder(1, 1);  // folder 01 → 001.mp3
-  Serial.println(F("Playing 01/001.mp3"));
+  // 5. Play the first track to confirm everything works
+  player.play(1);      // file 001.mp3 (or 001/001.mp3 etc.)
+  Serial.println(F("Playing track 1"));
 }
 
 void loop() {
-  if (player.available()) {
-    uint8_t type = player.readType();
-    int value = player.read();
+  // ---- Simple serial command interface ----
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    cmd.toLowerCase();
 
-    switch (type) {
-      case DFPlayerPlayFinished:
-        Serial.print(F("Finished: ")); Serial.println(value);
-        break;
-      case DFPlayerError:
-        Serial.print(F("ERROR: "));
-        if (value == FileIndexOut) Serial.println(F("File not found"));
-        else Serial.println(value);
-        break;
-      case DFPlayerCardOnline:
-        Serial.println(F("SD Card Online"));
-        break;
+    if (cmd == "next") {
+      player.next();
+      Serial.println(F("→ Next"));
     }
+    else if (cmd == "prev" || cmd == "previous") {
+      player.previous();
+      Serial.println(F("← Previous"));
+    }
+    else if (cmd.startsWith("play ")) {
+      int track = cmd.substring(5).toInt();
+      if (track > 0 && track < 1000) {
+        player.play(track);
+        Serial.print(F("Playing #")); Serial.println(track);
+      } else {
+        Serial.println(F("Invalid track (1-999)"));
+      }
+    }
+    else if (cmd.startsWith("vol ")) {
+      int vol = cmd.substring(4).toInt();
+      if (vol >= 0 && vol <= 30) {
+        player.volume(vol);
+        Serial.print(F("Volume = ")); Serial.println(vol);
+      } else {
+        Serial.println(F("Volume 0-30"));
+      }
+    }
+    else if (cmd == "pause") {
+      player.pause();
+      Serial.println(F("Paused"));
+    }
+    else if (cmd == "start" || cmd == "resume") {
+      player.start();
+      Serial.println(F("Resumed"));
+    }
+    else if (cmd == "stop") {
+      player.stop();
+      Serial.println(F("Stopped"));
+    }
+    else if (cmd == "status") {
+      printDetail(player.readType(), player.read());
+    }
+    else {
+      Serial.println(F("Commands: next, prev, play <n>, vol <0-30>, pause, start, stop, status"));
+    }
+  }
+
+  // ---- Optional: read DFPlayer feedback (errors, finish, etc.) ----
+  if (player.available()) {
+    printDetail(player.readType(), player.read());
+  }
+
+  delay(10);
+}
+
+/* -------------------------------------------------------------
+   Helper: pretty-print DFPlayer feedback
+   ------------------------------------------------------------- */
+void printDetail(uint8_t type, int value) {
+  switch (type) {
+    case TimeOut:
+      Serial.println(F("Time Out!"));
+      break;
+    case WrongStack:
+      Serial.println(F("Stack Wrong!"));
+      break;
+    case DFPlayerCardInserted:
+      Serial.println(F("Card Inserted!"));
+      break;
+    case DFPlayerCardRemoved:
+      Serial.println(F("Card Removed!"));
+      break;
+    case DFPlayerCardOnline:
+      Serial.println(F("Card Online!"));
+      break;
+    case DFPlayerUSBInserted:
+      Serial.println(F("USB Inserted!"));
+      break;
+    case DFPlayerUSBRemoved:
+      Serial.println(F("USB Removed!"));
+      break;
+    case DFPlayerPlayFinished:
+      Serial.print(F("Track Finished, number: "));
+      Serial.println(value);
+      break;
+    case DFPlayerError:
+      Serial.print(F("DFPlayerError: "));
+      switch (value) {
+        case Busy:          Serial.println(F("Busy")); break;
+        case Sleeping:      Serial.println(F("Sleeping")); break;
+        case SerialWrongStack: Serial.println(F("Serial Wrong Stack")); break;
+        case CheckSumNotMatch: Serial.println(F("Check Sum Not Match")); break;
+        case FileIndexOut:  Serial.println(F("File Index Out of Bound")); break;
+        case Advertise:     Serial.println(F("Advertise")); break;
+        default:            Serial.println(value); break;
+      }
+      break;
+    default:
+      // unknown / not needed
+      break;
   }
 }
