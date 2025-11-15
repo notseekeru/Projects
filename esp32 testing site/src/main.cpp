@@ -1,4 +1,8 @@
 #include <ezButton.h>
+#include <Arduino.h>
+#include <BleKeyboard.h>
+
+BleKeyboard bleKeyboard;
 
 #define VRX_PIN  39
 #define VRY_PIN  36
@@ -25,6 +29,7 @@ void setup() {
 
   analogSetAttenuation(ADC_11db);
   button.setDebounceTime(50);
+  bleKeyboard.begin();
 }
 
 void loop() {
@@ -42,26 +47,28 @@ void loop() {
 
   bool isAtRest = (xDiff < 300 && yDiff < 300);
 
-  if (button.isPressed()) {
-    Serial.println("The button is pressed");
-    digitalWrite(led1, HIGH);
-    digitalWrite(led2, HIGH);
-    digitalWrite(led3, HIGH);
-    digitalWrite(led4, HIGH);
+  if (!isAtRest) {
+    if (yValue >= 2100) {
+      bleKeyboard.press(KEY_UP_ARROW);
+      Serial.println("W was pushed");
+    }
+    else if (xValue <= 1500) {
+      bleKeyboard.press(KEY_LEFT_ALT);
+      Serial.println("A was pushed");
+    }
+    else if (yValue <= 1500) {
+      bleKeyboard.press(KEY_DOWN_ARROW);
+      Serial.println("S was pushed");
+    }
+    else if (xValue >= 2100) {
+      bleKeyboard.press(KEY_RIGHT_ARROW);
+      Serial.println("D was pushed");
+    }
+    else {
+      bleKeyboard.releaseAll();
+    }
+  } else {
+    // Joystick at rest - release all keys
+    bleKeyboard.releaseAll();
   }
-
-  if (button.isReleased()) {
-    digitalWrite(led1, LOW);
-    digitalWrite(led2, LOW);
-    digitalWrite(led3, LOW);
-    digitalWrite(led4, LOW);
-  }
-  Serial.print("x = ");
-  Serial.print(xValue);
-  Serial.print(", y = ");
-  Serial.print(yValue);
-  Serial.print(" : button = ");
-  Serial.print(bValue);
-  Serial.print(" : isAtRest = ");
-  Serial.println(isAtRest ? "YES" : "NO");
 }
