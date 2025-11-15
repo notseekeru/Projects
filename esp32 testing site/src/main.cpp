@@ -1,72 +1,67 @@
+#include <ezButton.h>
 
-#include <Arduino.h>
+#define VRX_PIN  39
+#define VRY_PIN  36
+#define SW_PIN   17
 
-#define VRX_PIN  39 // ESP32 pin GPIO39 (ADC3) connected to VRX pin
-#define VRY_PIN  36 // ESP32 pin GPIO36 (ADC0) connected to VRY pin
+int led1 = 19;
+int led2 = 21;
+int led3 = 22;
+int led4 = 23;
 
-#define LEFT_THRESHOLD  1000
-#define RIGHT_THRESHOLD 3000
-#define UP_THRESHOLD    1000
-#define DOWN_THRESHOLD  3000
+ezButton button(SW_PIN);
 
-#define COMMAND_NO     0x00
-#define COMMAND_LEFT   0x01
-#define COMMAND_RIGHT  0x02
-#define COMMAND_UP     0x04
-#define COMMAND_DOWN   0x08
-
-int valueX = 0 ; // to store the X-axis value
-int valueY = 0 ; // to store the Y-axis value
-int command = COMMAND_NO;
+int xValue= 0;
+int yValue = 0;
+int bValue = 0;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
-  // Set the ADC attenuation to 11 dB (up to ~3.3V input)
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+  pinMode(led4, OUTPUT);
+
   analogSetAttenuation(ADC_11db);
+  button.setDebounceTime(50);
 }
 
 void loop() {
-  // read X and Y analog values
-  valueX = analogRead(VRX_PIN);
-  valueY = analogRead(VRY_PIN);
+  button.loop();
 
-  // converts the analog value to commands
-  // reset commands
-  command = COMMAND_NO;
+  yValue= analogRead(VRX_PIN);
+  xValue = analogRead(VRY_PIN);
 
-  // check left/right commands
-  if (valueX < LEFT_THRESHOLD)
-    command = command | COMMAND_LEFT;
-  else if (valueX > RIGHT_THRESHOLD)
-    command = command | COMMAND_RIGHT;
+  bValue = button.getState();
 
-  // check up/down commands
-  if (valueY < UP_THRESHOLD)
-    command = command | COMMAND_UP;
-  else if (valueY > DOWN_THRESHOLD)
-    command = command | COMMAND_DOWN;
+  int centerX = 2047;
+  int centerY = 2047;
+  int xDiff = abs(xValue - centerX);
+  int yDiff = abs(yValue - centerY);
 
-  // NOTE: AT A TIME, THERE MAY BE NO COMMAND, ONE COMMAND OR TWO COMMANDS
+  bool isAtRest = (xDiff < 300 && yDiff < 300);
 
-  // print command to serial and process command
-  if (command & COMMAND_LEFT) {
-    Serial.println("COMMAND LEFT");
-    // TODO: add your task here
+  if (button.isPressed()) {
+    Serial.println("The button is pressed");
+    digitalWrite(led1, HIGH);
+    digitalWrite(led2, HIGH);
+    digitalWrite(led3, HIGH);
+    digitalWrite(led4, HIGH);
   }
 
-  if (command & COMMAND_RIGHT) {
-    Serial.println("COMMAND RIGHT");
-    // TODO: add your task here
+  if (button.isReleased()) {
+    digitalWrite(led1, LOW);
+    digitalWrite(led2, LOW);
+    digitalWrite(led3, LOW);
+    digitalWrite(led4, LOW);
   }
-
-  if (command & COMMAND_UP) {
-    Serial.println("COMMAND UP");
-    // TODO: add your task here
-  }
-
-  if (command & COMMAND_DOWN) {
-    Serial.println("COMMAND DOWN");
-    // TODO: add your task here
-  }
+  Serial.print("x = ");
+  Serial.print(xValue);
+  Serial.print(", y = ");
+  Serial.print(yValue);
+  Serial.print(" : button = ");
+  Serial.print(bValue);
+  Serial.print(" : isAtRest = ");
+  Serial.println(isAtRest ? "YES" : "NO");
 }
